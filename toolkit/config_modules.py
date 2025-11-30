@@ -553,7 +553,7 @@ class TrainConfig:
         self.switch_boundary_every: int = kwargs.get('switch_boundary_every', 1)
 
 
-ModelArch = Literal['sd1', 'sd2', 'sd3', 'sdxl', 'pixart', 'pixart_sigma', 'auraflow', 'flux', 'flex1', 'flex2', 'lumina2', 'vega', 'ssd', 'wan21']
+ModelArch = Literal['sd1', 'sd2', 'sd3', 'sdxl', 'pixart', 'pixart_sigma', 'auraflow', 'flux', 'flux2', 'flex1', 'flex2', 'lumina2', 'vega', 'ssd', 'wan21']
 
 
 class ModelConfig:
@@ -568,6 +568,8 @@ class ModelConfig:
         self.is_auraflow: bool = kwargs.get('is_auraflow', False)
         self.is_v3: bool = kwargs.get('is_v3', False)
         self.is_flux: bool = kwargs.get('is_flux', False)
+        # explicit flag for Flux2 models – allows YAML to select Flux2 backend directly
+        self.is_flux2: bool = kwargs.get('is_flux2', False)
         self.is_lumina2: bool = kwargs.get('is_lumina2', False)
         if self.is_pixart_sigma:
             self.is_pixart = True
@@ -673,11 +675,17 @@ class ModelConfig:
         if self.arch is not None:
             if ':' in self.arch:
                 self.arch = self.arch.split(':')[0]
-        
+
+        # normalize legacy aliases
         if self.arch == "flex1":
             self.arch = "flux"
-            
-        
+
+        # if YAML explicitly marks Flux2, prefer that over generic flux flag
+        if self.is_flux2 and (self.arch is None or self.arch in ["flux", "sd1"]):
+            self.arch = "flux2"
+            # Flux2 is conceptually a Flux-family model
+            self.is_flux = True
+
         # handle migrating to new model arch
         if self.arch is not None:
             # reverse the arch to the old style
@@ -695,6 +703,10 @@ class ModelConfig:
                 self.is_auraflow = True
             elif self.arch == 'flux':
                 self.is_flux = True
+            elif self.arch == 'flux2':
+                # ensure Flux2 models also set the generic flux flag
+                self.is_flux = True
+                self.is_flux2 = True
             elif self.arch == 'lumina2':
                 self.is_lumina2 = True
             elif self.arch == 'vega':
@@ -703,7 +715,9 @@ class ModelConfig:
                 self.is_ssd = True
             else:
                 pass
+
         if self.arch is None:
+            # no explicit arch provided – infer from boolean flags
             if kwargs.get('is_v2', False):
                 self.arch = 'sd2'
             elif kwargs.get('is_v3', False):
@@ -716,6 +730,11 @@ class ModelConfig:
                 self.arch = 'pixart_sigma'
             elif kwargs.get('is_auraflow', False):
                 self.arch = 'auraflow'
+            elif kwargs.get('is_flux2', False):
+                # prefer explicit Flux2 flag if set
+                self.arch = 'flux2'
+                self.is_flux = True
+                self.is_flux2 = True
             elif kwargs.get('is_flux', False):
                 self.arch = 'flux'
             elif kwargs.get('is_lumina2', False):
@@ -726,6 +745,15 @@ class ModelConfig:
                 self.arch = 'ssd'
             else:
                 self.arch = 'sd1'
+
+        # final auto-detection helper: if nothing explicit was set but name_or_path
+        # clearly indicates Flux2, route through the Flux2 backend. This keeps
+        # backwards compatibility while making CLI/YAML usage convenient.
+        if self.arch == 'flux' and not self.is_flux2 and isinstance(self.name_or_path, str):
+            if 'FLUX.2' in self.name_or_path or 'flux.2' in self.name_or_path.lower():
+                self.arch = 'flux2'
+                self.is_flux = True
+                self.is_flux2 = True
         
 
 

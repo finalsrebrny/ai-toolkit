@@ -1,0 +1,69 @@
+---
+job: extension
+config:
+  # this name will be the folder and filename name
+  name: "my_first_flux2_lora_v1"
+  process:
+    - type: 'sd_trainer'
+      # root folder to save training sessions/samples/weights
+      training_folder: "output"
+      device: cuda:0
+      network:
+        type: "lora"
+        linear: 16
+        linear_alpha: 16
+      save:
+        dtype: float16
+        save_every: 250
+        max_step_saves_to_keep: 4
+        push_to_hub: false
+      datasets:
+        - folder_path: "/path/to/images/folder"
+          caption_ext: "txt"
+          caption_dropout_rate: 0.05
+          shuffle_tokens: false
+          cache_latents_to_disk: true
+          resolution: [ 512, 768, 1024 ]
+      train:
+        batch_size: 1
+        steps: 2000
+        gradient_accumulation_steps: 1
+        train_unet: true
+        train_text_encoder: false
+        gradient_checkpointing: true
+        noise_scheduler: "flowmatch"
+        optimizer: "adamw8bit"
+        lr: 1e-4
+        ema_config:
+          use_ema: true
+          ema_decay: 0.99
+        # Flux2 uses a large Mistral text encoder – bf16 is generally recommended
+        dtype: bf16
+      model:
+        # huggingface model name or path for Flux2
+        name_or_path: "black-forest-labs/FLUX.2-dev"
+        # keep is_flux true so existing tooling that checks this flag still works
+        is_flux: true
+        # explicit flag to route training through the Flux2 backend
+        is_flux2: true
+        # you can also set arch: "flux2" instead of is_flux2 if you prefer
+        arch: "flux2"
+        quantize: true  # run 8bit mixed precision when supported
+      sample:
+        sampler: "flowmatch" # must match train.noise_scheduler
+        sample_every: 250
+        width: 1024
+        height: 1024
+        prompts:
+          - "woman with red hair, playing chess at the park, bomb going off in the background"
+          - "a woman holding a coffee cup, in a beanie, sitting at a cafe"
+          - "a horse is a DJ at a night club, fish eye lens, smoke machine, lazer lights, holding a martini"
+          - "a man showing off his cool new t shirt at the beach, a shark is jumping out of the water in the background"
+          - "a bear building a log cabin in the snow covered mountains"
+          - "woman playing the guitar, on stage, singing a song, laser lights, punk rocker"
+          - "hipster man with a beard, building a chair, in a wood shop"
+          - "photo of a man, white background, medium shot, modeling clothing, studio lighting, white backdrop"
+          - "a man holding a sign that says, 'this is a sign'"
+meta:
+  name: "[name]"
+  version: '1.0'
