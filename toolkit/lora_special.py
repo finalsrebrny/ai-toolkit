@@ -501,8 +501,16 @@ class LoRASpecialNetwork(ToolkitNetworkMixin, LoRANetwork):
             target_modules = ["AuraFlowTransformer2DModel"]
 
         if is_flux:
-            target_modules = ["FluxTransformer2DModel"]
-        
+            # For classic Flux.1 models, the transformer class is FluxTransformer2DModel.
+            # Flux2 uses a different implementation where the top-level transformer
+            # class name is "Flux2" (see extensions_built_in/diffusion_models/flux2/src/model.py).
+            # We need to route LoRA discovery to the proper class name depending on
+            # which backend is active.
+            if base_model is not None and getattr(base_model, "arch", None) == "flux2":
+                target_modules = ["Flux2"]
+            else:
+                target_modules = ["FluxTransformer2DModel"]
+
         if is_lumina2:
             target_modules = ["Lumina2Transformer2DModel"]
 
